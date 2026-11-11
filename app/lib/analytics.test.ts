@@ -8,6 +8,7 @@ import {
   formatMoney,
   rangeStart,
   parseAnalyticsRange,
+  splitEarnings,
   splitRevenue,
 } from "./analytics";
 
@@ -75,6 +76,31 @@ describe("analytics config", () => {
         feeCents: 0,
         netCents: 0,
       });
+    });
+  });
+
+  describe("splitEarnings", () => {
+    it("takes refunded and on-hold money out before the platform fee", () => {
+      expect(
+        splitEarnings({ grossCents: 10000, refundedCents: 2000, onHoldCents: 3000 })
+      ).toEqual({
+        grossCents: 10000,
+        refundedCents: 2000,
+        onHoldCents: 3000,
+        earnedCents: 5000,
+        feeCents: 1000,
+        netCents: 4000,
+      });
+    });
+
+    it("charges no fee on a period where refunds outweigh sales", () => {
+      const { feeCents, netCents } = splitEarnings({
+        grossCents: 1000,
+        refundedCents: 4999,
+        onHoldCents: 0,
+      });
+      expect(feeCents).toBe(0);
+      expect(netCents).toBe(-3999);
     });
   });
 

@@ -98,6 +98,20 @@ export function formatBucket(bucket: string): string {
  * rounding, so the three figures always add up on screen.
  */
 export function splitRevenue(grossCents: number) {
-  const feeCents = Math.round(grossCents * PLATFORM_FEE_RATE);
+  const feeCents = Math.max(0, Math.round(grossCents * PLATFORM_FEE_RATE));
   return { grossCents, feeCents, netCents: grossCents - feeCents };
+}
+
+/**
+ * Splits sales into Earned Revenue — what is left once Refunded and On Hold
+ * Revenue are taken out — and takes the platform fee from Earned only.
+ */
+export function splitEarnings(input: {
+  grossCents: number;
+  refundedCents: number;
+  onHoldCents: number;
+}) {
+  const earnedCents = input.grossCents - input.refundedCents - input.onHoldCents;
+  const { feeCents, netCents } = splitRevenue(earnedCents);
+  return { ...input, earnedCents, feeCents, netCents };
 }

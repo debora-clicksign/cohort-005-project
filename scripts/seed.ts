@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { eq, gte, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import { and, eq, gte, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
@@ -10,6 +10,7 @@ import {
   UserRole,
   CourseStatus,
   LessonProgressStatus,
+  RefundRequestStatus,
   RefundStatus,
   QuestionType,
   TeamMemberRole,
@@ -78,6 +79,7 @@ async function seed() {
     DROP TABLE IF EXISTS team_members;
     DROP TABLE IF EXISTS teams;
     DROP TABLE IF EXISTS refunds;
+    DROP TABLE IF EXISTS refund_requests;
     DROP TABLE IF EXISTS purchases;
     DROP TABLE IF EXISTS enrollments;
     DROP TABLE IF EXISTS lessons;
@@ -2724,17 +2726,19 @@ This course is still in draft while the cluster examples are rewritten against t
     []
   );
 
-  // ─── Liam's Refund Request ───
-  // One learner with an Open Refund Request. The dates count back from
-  // today, so the fourteen-day refund window is still open whenever you seed.
+  // ─── Refund Requests ───
+  // One of each state the admin refunds page shows: Liam's is Open, Sophia's
+  // was Declined, and Olivia's was Approved with its Refund still Pending —
+  // so her Enrollment is Refunded. Liam's dates count back from today, so the
+  // fourteen-day refund window is still open whenever you seed.
 
-  const liam = studentByEmail("liam@example.com");
+  const liam = studentByEmail("liam.thompson@student.dev");
   const [liamPurchase] = db
     .insert(schema.purchases)
     .values({
       userId: liam.id,
       courseId: course1.id,
-      amountPaid: 7900,
+      amountPaid: course1.price,
       country: null,
       createdAt: daysAgo(9),
     })
@@ -2772,16 +2776,78 @@ This course is still in draft while the cluster examples are rewritten against t
       updatedAt: daysAgo(6),
     })
     .run();
-  db.insert(schema.refunds)
+  db.insert(schema.refundRequests)
     .values({
       purchaseId: liamPurchase.id,
-      status: RefundStatus.Open,
+      status: RefundRequestStatus.Open,
       reason: "Bought the wrong one, I meant the advanced course.",
       requestedAt: daysAgo(4),
     })
     .run();
 
-  console.log("Created Liam's Refund Request.");
+  function purchaseOf(email: string, courseId: number) {
+    const purchase = db
+      .select()
+      .from(schema.purchases)
+      .where(
+        and(
+          eq(schema.purchases.userId, studentByEmail(email).id),
+          eq(schema.purchases.courseId, courseId)
+        )
+      )
+      .get();
+    if (!purchase) throw new Error(`No seeded purchase for ${email}`);
+    return purchase;
+  }
+
+  db.insert(schema.refundRequests)
+    .values({
+      purchaseId: purchaseOf("sophia.davis@student.dev", course1.id).id,
+      status: RefundRequestStatus.Declined,
+      reason: "The pace is too slow for me, I expected more advanced content.",
+      declineReason:
+        "The course page lists it as a beginner course. Try skipping ahead to the Advanced Patterns module first.",
+      requestedAt: daysAgo(6),
+      decidedAt: daysAgo(5),
+      decidedByUserId: admin.id,
+    })
+    .run();
+
+  const oliviaPurchase = purchaseOf("olivia.martinez@student.dev", course1.id);
+  const [oliviaRequest] = db
+    .insert(schema.refundRequests)
+    .values({
+      purchaseId: oliviaPurchase.id,
+      status: RefundRequestStatus.Approved,
+      reason: "My employer is paying for a team licence, so I don't need my own copy.",
+      requestedAt: daysAgo(3),
+      decidedAt: daysAgo(2),
+      decidedByUserId: admin.id,
+    })
+    .returning()
+    .all();
+  db.insert(schema.refunds)
+    .values({
+      refundRequestId: oliviaRequest.id,
+      amount: oliviaPurchase.amountPaid,
+      status: RefundStatus.Pending,
+      createdAt: daysAgo(2),
+      updatedByUserId: admin.id,
+    })
+    .run();
+  db.update(schema.enrollments)
+    .set({ refundedAt: daysAgo(2) })
+    .where(
+      and(
+        eq(schema.enrollments.userId, oliviaPurchase.userId),
+        eq(schema.enrollments.courseId, course1.id)
+      )
+    )
+    .run();
+
+  console.log(
+    `Created ${countRows(schema.refundRequests)} refund requests and ${countRows(schema.refunds)} refund.`
+  );
 
   // ─── Flush watch events ───
   // Batched: the heartbeat makes these by far the largest table, and one

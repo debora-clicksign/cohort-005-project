@@ -28,6 +28,7 @@ function getCourseById(id: number) {
   return db.select().from(courses).where(eq(courses.id, id)).get();
 }
 
+// Includes Refunded Enrollments, which the roster labels rather than hides.
 function getCourseEnrolledStudents(courseId: number) {
   return db
     .select({
@@ -35,6 +36,7 @@ function getCourseEnrolledStudents(courseId: number) {
       userId: enrollments.userId,
       enrolledAt: enrollments.enrolledAt,
       completedAt: enrollments.completedAt,
+      refundedAt: enrollments.refundedAt,
     })
     .from(enrollments)
     .where(eq(enrollments.courseId, courseId))
@@ -245,6 +247,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       email: studentUser?.email ?? "",
       enrolledAt: enrollment.enrolledAt,
       completedAt: enrollment.completedAt,
+      refundedAt: enrollment.refundedAt,
       progress,
       quizScores,
     };
@@ -293,6 +296,7 @@ export default function InstructorStudentRoster({
   loaderData,
 }: Route.ComponentProps) {
   const { course, students, quizCount } = loaderData;
+  const enrolledCount = students.filter((s) => !s.refundedAt).length;
 
   return (
     <div className="mx-auto max-w-7xl p-6 lg:p-8">
@@ -327,7 +331,7 @@ export default function InstructorStudentRoster({
       <div className="mb-4 flex items-center gap-4 text-sm text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <Users className="size-4" />
-          {students.length} {students.length === 1 ? "student" : "students"}{" "}
+          {enrolledCount} {enrolledCount === 1 ? "student" : "students"}{" "}
           enrolled
         </span>
         {quizCount > 0 && (
@@ -405,7 +409,11 @@ export default function InstructorStudentRoster({
                           {progressBar(student.progress)}
                         </td>
                         <td className="px-4 py-3">
-                          {student.completedAt ? (
+                          {student.refundedAt ? (
+                            <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                              Refunded
+                            </span>
+                          ) : student.completedAt ? (
                             <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
                               Completed
                             </span>
