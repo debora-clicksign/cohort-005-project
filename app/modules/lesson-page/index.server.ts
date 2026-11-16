@@ -24,6 +24,7 @@ export {
 } from "./lib/thread.server";
 export {
   getQuizByLessonId,
+  getLessonQuiz,
   getQuizWithQuestions,
   getBestAttempt,
   computeResult,
@@ -33,4 +34,5 @@ export {
   editCommentSchema,
   saveNoteSchema,
   deleteCommentSchema,
+  submitQuizSchema,
 } from "./lib/action-schemas";

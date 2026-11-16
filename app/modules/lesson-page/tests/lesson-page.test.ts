@@ -8,6 +8,7 @@ import {
   getCourseWithDetails,
   getLessonProgress,
   getLessonProgressForCourse,
+  getLessonQuiz,
   markLessonComplete,
   markLessonInProgress,
 } from "../index.server";
@@ -137,5 +138,17 @@ describe("watch progress", () => {
   it("stops at 100", () => {
     watchedTo(500);
     expect(calculateWatchProgress(base.user.id, lessonIds[0], 360)).toBe(100);
+  });
+});
+
+describe("a lesson's quiz", () => {
+  it("is found by id on its own lesson, and not on another", () => {
+    const quiz = db
+      .insert(schema.quizzes)
+      .values({ lessonId: lessonIds[0], title: "Basics", passingScore: 0.7 })
+      .returning()
+      .get();
+    expect(getLessonQuiz(quiz.id, lessonIds[0])).toEqual(quiz);
+    expect(getLessonQuiz(quiz.id, lessonIds[1])).toBeUndefined();
   });
 });
