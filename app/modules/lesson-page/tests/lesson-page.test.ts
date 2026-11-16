@@ -11,6 +11,7 @@ import {
   getLessonQuiz,
   markLessonComplete,
   markLessonInProgress,
+  submitQuizSchema,
 } from "../index.server";
 
 // The module reads the app's shared `db`; point it at a fresh in-memory one.
@@ -152,5 +153,25 @@ describe("a lesson's quiz", () => {
       .get();
     expect(getLessonQuiz(quiz.id, lessonIds[0])).toEqual(quiz);
     expect(getLessonQuiz(quiz.id, lessonIds[1])).toBeUndefined();
+  });
+});
+
+describe("the submit-quiz form", () => {
+  const parse = (fields: Record<string, string>) =>
+    submitQuizSchema.safeParse(fields);
+
+  it("reads the quiz id as a number", () => {
+    expect(parse({ intent: "submit-quiz", quizId: "3" })).toMatchObject({
+      success: true,
+      data: { intent: "submit-quiz", quizId: 3 },
+    });
+  });
+
+  it.each(["", "abc", "0", "1.5"])("rejects quiz id %j", (quizId) => {
+    expect(parse({ intent: "submit-quiz", quizId }).success).toBe(false);
+  });
+
+  it("rejects another intent", () => {
+    expect(parse({ intent: "save-note", quizId: "3" }).success).toBe(false);
   });
 });
