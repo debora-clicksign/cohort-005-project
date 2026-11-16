@@ -91,6 +91,8 @@ describe("the course outline", () => {
 });
 
 describe("lesson progress", () => {
+  const NOW = new Date("2026-03-01T12:00:00.000Z");
+
   it("marks a viewed lesson in progress", () => {
     markLessonInProgress(base.user.id, lessonIds[0]);
     expect(getLessonProgress(base.user.id, lessonIds[0])?.status).toBe(
@@ -99,7 +101,7 @@ describe("lesson progress", () => {
   });
 
   it("does not move a completed lesson back to in progress", () => {
-    markLessonComplete(base.user.id, lessonIds[0]);
+    markLessonComplete(base.user.id, lessonIds[0], NOW);
     markLessonInProgress(base.user.id, lessonIds[0]);
     expect(getLessonProgress(base.user.id, lessonIds[0])?.status).toBe(
       LessonProgressStatus.Completed
@@ -108,10 +110,10 @@ describe("lesson progress", () => {
 
   it("completes a lesson already in progress without a second row", () => {
     markLessonInProgress(base.user.id, lessonIds[1]);
-    markLessonComplete(base.user.id, lessonIds[1]);
+    markLessonComplete(base.user.id, lessonIds[1], NOW);
     const rows = getLessonProgressForCourse(base.user.id, base.course.id);
-    expect(rows.map((r) => [r.lessonId, r.status])).toEqual([
-      [lessonIds[1], LessonProgressStatus.Completed],
+    expect(rows.map((r) => [r.lessonId, r.status, r.completedAt])).toEqual([
+      [lessonIds[1], LessonProgressStatus.Completed, NOW.toISOString()],
     ]);
   });
 });
