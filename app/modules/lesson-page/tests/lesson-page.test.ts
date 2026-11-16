@@ -4,6 +4,9 @@ import * as schema from "~/db/schema";
 import { LessonProgressStatus } from "~/db/schema";
 import {
   calculateWatchProgress,
+  createCommentSchema,
+  deleteCommentSchema,
+  editCommentSchema,
   flattenCourseLessons,
   getCourseWithDetails,
   getLessonProgress,
@@ -11,6 +14,7 @@ import {
   getLessonQuiz,
   markLessonComplete,
   markLessonInProgress,
+  saveNoteSchema,
   submitQuizSchema,
 } from "../index.server";
 
@@ -173,5 +177,64 @@ describe("the submit-quiz form", () => {
 
   it("rejects another intent", () => {
     expect(parse({ intent: "save-note", quizId: "3" }).success).toBe(false);
+  });
+});
+
+describe("the save-note form", () => {
+  const parse = (body: string) => saveNoteSchema.safeParse({ body });
+  const errorOf = (body: string) => parse(body).error?.issues[0]?.message;
+
+  it("saves the body trimmed", () => {
+    expect(parse("  Rewatch at 4:20 \n").data).toEqual({
+      body: "Rewatch at 4:20",
+    });
+  });
+
+  it("rejects a body that is only whitespace", () => {
+    expect(errorOf("   ")).toBe("Write something before saving your note.");
+  });
+
+  it("allows 2,000 characters after trimming, and not 2,001", () => {
+    expect(parse(` ${"a".repeat(2000)} `).success).toBe(true);
+    expect(errorOf("a".repeat(2001))).toBe(
+      "Your note is over 2,000 characters, so it was not saved."
+    );
+  });
+});
+
+describe("the comment forms", () => {
+  it("each accepts only its own intent", () => {
+    expect(
+      createCommentSchema.safeParse({ intent: "create-comment", body: "Hi" })
+        .success
+    ).toBe(true);
+    expect(
+      createCommentSchema.safeParse({ intent: "edit-comment", body: "Hi" })
+        .success
+    ).toBe(false);
+    expect(
+      editCommentSchema.safeParse({
+        intent: "edit-comment",
+        commentId: "4",
+        body: "Hi",
+      }).data
+    ).toEqual({ intent: "edit-comment", commentId: 4, body: "Hi" });
+    expect(
+      editCommentSchema.safeParse({
+        intent: "create-comment",
+        commentId: "4",
+        body: "Hi",
+      }).success
+    ).toBe(false);
+    expect(
+      deleteCommentSchema.safeParse({
+        intent: "delete-comment",
+        commentId: "4",
+      }).data
+    ).toEqual({ intent: "delete-comment", commentId: 4 });
+    expect(
+      deleteCommentSchema.safeParse({ intent: "edit-comment", commentId: "4" })
+        .success
+    ).toBe(false);
   });
 });
