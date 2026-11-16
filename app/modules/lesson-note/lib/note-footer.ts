@@ -3,7 +3,6 @@ import { MAX_NOTE_LENGTH } from "~/lib/notes";
 export type NoteFooterInput = {
   /** The body last saved, or null when the Student has no Note yet. */
   savedBody: string | null;
-  /** What is in the editor right now. */
   draft: string;
   isSaving: boolean;
   /** The error from the last save, if it failed. */
